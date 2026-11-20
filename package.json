@@ -1,0 +1,54 @@
+{
+  "name": "medusa-payment-moyasar",
+  "version": "0.1.0",
+  "description": "Moyasar payment provider for Medusa v2: cards, mada, Apple Pay, Samsung Pay and STC Pay through Moyasar Payment Intents.",
+  "license": "MIT",
+  "author": "Moyasar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moyasar/medusa-payment-moyasar.git"
+  },
+  "keywords": [
+    "medusa",
+    "medusa-v2",
+    "medusa-plugin",
+    "medusa-plugin-payment",
+    "moyasar",
+    "mada",
+    "apple-pay",
+    "stc-pay",
+    "saudi-arabia"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "peerDependencies": {
+    "@medusajs/framework": "^2.12.0"
+  },
+  "devDependencies": {
+    "@medusajs/framework": "^2.22.7",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
