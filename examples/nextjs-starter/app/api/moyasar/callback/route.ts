@@ -1,34 +1,47 @@
+import { initiatePaymentSession, placeOrder, retrieveCart } from "@lib/data/cart"
+import { unstable_rethrow } from "next/navigation"
 import { NextRequest, NextResponse } from "next/server"
-import { sdk } from "@lib/config"
+
+const PROVIDER_ID = "pp_moyasar_moyasar"
+
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: path } })
+}
 
 export async function GET(request: NextRequest) {
-  const url = request.nextUrl
-  const cartId = url.searchParams.get("cart_id")
-  const countryCode = url.searchParams.get("country_code") ?? "sa"
-  const checkout = new URL(`/${countryCode}/checkout?step=payment`, url.origin)
+  const { searchParams } = request.nextUrl
+  const cartId = searchParams.get("cart_id")
+  const countryCode = searchParams.get("country_code") ?? "sa"
+  const checkout = new URLSearchParams({ step: "payment" })
 
   if (!cartId) {
-    return NextResponse.redirect(checkout)
+    return redirectTo(`/${countryCode}/checkout?${checkout}`)
   }
 
-  if (url.searchParams.get("status") === "failed") {
-    checkout.searchParams.set("error", url.searchParams.get("message") ?? "Payment failed")
-    return NextResponse.redirect(checkout)
-  }
+  let error = searchParams.get("message") || "Payment failed"
 
-  try {
-    const result = await sdk.store.cart.complete(cartId)
-
-    if (result.type === "order") {
-      return NextResponse.redirect(
-        new URL(`/${countryCode}/order/${result.order.id}/confirmed`, url.origin)
-      )
+  if (searchParams.get("status") !== "failed") {
+    try {
+      await placeOrder(cartId)
+      error = "Payment was not completed"
+    } catch (placeOrderError) {
+      unstable_rethrow(placeOrderError)
+      error = (placeOrderError as Error).message
     }
-
-    checkout.searchParams.set("error", result.error?.message ?? "Payment was not completed")
-  } catch (error) {
-    checkout.searchParams.set("error", (error as Error).message)
   }
 
-  return NextResponse.redirect(checkout)
+  const cart = await retrieveCart(cartId)
+  const callbackUrl = cart?.payment_collection?.payment_sessions?.find(
+    (session) => session.provider_id === PROVIDER_ID
+  )?.data?.callback_url
+
+  if (cart && !cart.completed_at && typeof callbackUrl === "string") {
+    await initiatePaymentSession(cart, {
+      provider_id: PROVIDER_ID,
+      data: { callback_url: callbackUrl },
+    }).catch(() => undefined)
+  }
+
+  checkout.set("error", error)
+  return redirectTo(`/${countryCode}/checkout?${checkout}`)
 }

@@ -342,6 +342,73 @@ describe("cancelPayment and deletePayment", () => {
     await expect(provider.deletePayment({ data: session })).resolves.toEqual({ data: session })
     expect(logger.warn).not.toHaveBeenCalled()
   })
+
+  it("does not look up the payment when the intent was still unused", async () => {
+    const session = await initiate()
+    fake.reply("POST", "/v1/payment_intents/pi_1/cancel", 200, intent({ status: "canceled" }))
+
+    await provider.deletePayment({ data: session })
+
+    expect(fake.calls.some((c) => c.path === `/v1/payments/${session.payment_id}`)).toBe(false)
+  })
+
+  it.each(["paid", "authorized", "captured"] as const)(
+    "refuses to delete a session whose payment is already %s",
+    async (status) => {
+      const session = await initiate()
+      fake
+        .reply("POST", "/v1/payment_intents/pi_1/cancel", 400, { type: "intent_not_fulfillable" })
+        .reply("GET", `/v1/payments/${session.payment_id}`, 200, payment({
+          id: session.payment_id,
+          status,
+        }))
+
+      await expect(provider.deletePayment({ data: session })).rejects.toThrow(
+        /already .* Complete the cart/
+      )
+    }
+  )
+
+  it("deletes a session whose payment failed", async () => {
+    const session = await initiate()
+    fake
+      .reply("POST", "/v1/payment_intents/pi_1/cancel", 400, { type: "intent_not_fulfillable" })
+      .reply("GET", `/v1/payments/${session.payment_id}`, 200, payment({
+        id: session.payment_id,
+        status: "failed",
+      }))
+
+    await expect(provider.deletePayment({ data: session })).resolves.toEqual({ data: session })
+  })
+
+  it("deletes a session whose payment does not match it", async () => {
+    const session = await initiate()
+    fake
+      .reply("POST", "/v1/payment_intents/pi_1/cancel", 400, { type: "intent_not_fulfillable" })
+      .reply("GET", `/v1/payments/${session.payment_id}`, 200, payment({
+        id: session.payment_id,
+        amount: 100,
+      }))
+
+    await expect(provider.deletePayment({ data: session })).resolves.toEqual({ data: session })
+  })
+
+  it("still deletes the session when Moyasar cannot be reached", async () => {
+    const session = await initiate()
+    fake
+      .reply("POST", "/v1/payment_intents/pi_1/cancel", 503, { message: "unavailable" })
+      .reply("GET", `/v1/payments/${session.payment_id}`, 503, { message: "unavailable" })
+
+    await expect(provider.deletePayment({ data: session })).resolves.toEqual({ data: session })
+    expect(logger.warn).toHaveBeenCalledTimes(2)
+  })
+
+  it("deletes a session that never got a Moyasar intent", async () => {
+    const data = { callback_url: "https://shop.example/checkout/moyasar" }
+
+    await expect(provider.deletePayment({ data })).resolves.toEqual({ data })
+    expect(fake.calls).toHaveLength(0)
+  })
 })
 
 describe("refundPayment", () => {
