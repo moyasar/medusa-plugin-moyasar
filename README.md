@@ -6,7 +6,8 @@ Accept mada, Visa, Mastercard, Apple Pay, Samsung Pay and STC Pay in a [Medusa v
 - **No trust in the browser.** Before Medusa authorizes a session, the provider fetches the payment from Moyasar and checks its ID, amount and currency against the session.
 - **Auto or manual capture.** Charge at checkout, or authorize first and capture from the Medusa admin when you fulfil the order.
 - **Webhooks.** Orders are still created if the shopper closes the tab after paying. Events are checked against your webhook secret with a constant-time comparison.
-- **Refunds and voids** from the Medusa admin, including partial refunds.
+- **Refunds and voids** from the Medusa admin, including a partial refund. Moyasar accepts one refund per payment, so a second refund on the same payment is rejected.
+- **No lost payments.** Once the shopper has paid, the provider refuses to drop the payment session, so the cart cannot change underneath a paid payment and completing it still creates the order.
 - **Multi-currency.** SAR, AED, BHD, KWD, QAR and USD, with correct minor units (including the trailing-zero rule for three-decimal currencies).
 
 Requires Medusa `>= 2.12` and Node.js `>= 20`.
@@ -111,7 +112,7 @@ npm install moyasar-payment-form
    })
    ```
 
-2. Render the form with the session's `data`. See [`examples/nextjs-starter/moyasar-payment.tsx`](examples/nextjs-starter/moyasar-payment.tsx) for a drop-in component for the [Next.js Starter](https://github.com/medusajs/nextjs-starter-medusa).
+2. Render the form with the session's `data`. See [`examples/nextjs-starter/moyasar-payment.tsx`](examples/nextjs-starter/moyasar-payment.tsx) for a drop-in component for the [Next.js Starter](https://github.com/medusajs/nextjs-starter-medusa). Copy [`moyasar-payment-form.d.ts`](examples/nextjs-starter/moyasar-payment-form.d.ts) next to it: `moyasar-payment-form` 2.3 ships its types outside its `exports` map, so TypeScript cannot find them on its own.
 
    ```tsx
    const session = cart.payment_collection.payment_sessions.find(
@@ -120,9 +121,22 @@ npm install moyasar-payment-form
    return <MoyasarPayment session={session.data} locale="ar" />
    ```
 
-3. Complete the cart when Moyasar redirects back. See [`examples/nextjs-starter/app/api/moyasar/callback/route.ts`](examples/nextjs-starter/app/api/moyasar/callback/route.ts).
+   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it:
 
-If a card is declined, the intent is used up. Initiate the payment session again to show the form with a fresh one. The provider also refreshes the intent by itself when the cart total changes or the intent is about to expire (Moyasar intents last one hour).
+   ```tsx
+   <MoyasarPayment
+     session={session.data}
+     applePay={{
+       country: "SA",
+       label: "My Store",
+       validate_merchant_url: "https://api.moyasar.com/v1/applepay/initiate",
+     }}
+   />
+   ```
+
+3. Complete the cart when Moyasar redirects back. See [`examples/nextjs-starter/app/api/moyasar/callback/route.ts`](examples/nextjs-starter/app/api/moyasar/callback/route.ts). It places the order with the starter's `placeOrder`, and when the payment failed it initiates the session again, so the shopper returns to a working form with a fresh intent.
+
+If a card is declined, the intent is used up. Initiate the payment session again to show the form with a fresh one. When the cart total changes, Medusa deletes the payment session and the provider cancels its intent, so a form that is still open can no longer be paid; initiate the session again for the new total. The provider also replaces the intent when Medusa updates a session whose amount changed or whose intent is about to expire (Moyasar intents last one hour).
 
 ## Status mapping
 
@@ -136,9 +150,14 @@ If a card is declined, the intent is used up. Initiate the payment session again
 | `voided` | `canceled` |
 | any successful status with a different ID, amount or currency than the session | `error` |
 
+## Limitations
+
+- **Partial captures.** Medusa does not pass the capture amount to payment providers, so capturing part of an authorized payment in the admin captures the full amount in Moyasar. Capture the full amount, then refund the difference.
+- **One refund per payment.** Moyasar marks a payment as refunded after its first refund, full or partial, and rejects further refunds. The admin shows Moyasar's error.
+
 ## Testing
 
-Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com), for example `4111 1111 1111 1111` (success) or `4000 0000 0000 0002` (3-D Secure).
+Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com). In test mode every card payment goes through Moyasar's 3-D Secure emulator. For example, `4111 1111 1111 1111` (Visa) and `4201 3201 1111 1010` (mada) succeed, and `4123 1200 0109 0000` is declined with insufficient funds.
 
 ```bash
 npm test

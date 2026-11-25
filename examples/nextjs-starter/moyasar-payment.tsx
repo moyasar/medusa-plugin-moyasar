@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import "moyasar-payment-form/dist/moyasar.css"
 
-type MoyasarSession = {
+export type MoyasarSession = {
   intent_id: string
   client_secret: string
   payment_id: string
@@ -21,14 +21,26 @@ type Props = {
   session: MoyasarSession
   locale?: "ar" | "en"
   applePay?: { country: string; label: string; validate_merchant_url?: string }
+  samsungPay?: Record<string, unknown>
 }
 
-export default function MoyasarPayment({ session, locale = "en", applePay }: Props) {
+export default function MoyasarPayment({
+  session,
+  locale = "en",
+  applePay,
+  samsungPay,
+}: Props) {
   const container = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string>()
 
   useEffect(() => {
     let cancelled = false
+
+    const methods = session.methods.filter(
+      (method) =>
+        (method !== "applepay" || applePay) &&
+        (method !== "samsungpay" || samsungPay)
+    )
 
     import("moyasar-payment-form").then(({ default: Moyasar }) => {
       if (cancelled || !container.current) return
@@ -42,13 +54,14 @@ export default function MoyasarPayment({ session, locale = "en", applePay }: Pro
         currency: session.currency,
         description: session.description,
         callback_url: session.callback_url,
-        methods: session.methods,
+        methods,
         metadata: session.metadata,
         given_id: session.payment_id,
         use_payment_intent: true,
         payment_intent: { id: session.intent_id, client_secret: session.client_secret },
         credit_card: { manual: session.manual },
         ...(applePay && { apple_pay: { ...applePay, manual: session.manual } }),
+        ...(samsungPay && { samsung_pay: { ...samsungPay, manual: session.manual } }),
         on_failure: async (failure: unknown) => {
           setError(typeof failure === "string" ? failure : (failure as { message?: string }).message)
         },
