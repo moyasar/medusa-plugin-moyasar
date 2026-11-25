@@ -121,7 +121,7 @@ npm install moyasar-payment-form
    return <MoyasarPayment session={session.data} locale="ar" />
    ```
 
-   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it:
+   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it. Apple Pay also needs the storefront on HTTPS and its domain registered for Apple Pay in your Moyasar dashboard, which serves Apple's verification file at `/.well-known/apple-developer-merchantid-domain-association`:
 
    ```tsx
    <MoyasarPayment
@@ -157,7 +157,7 @@ If a card is declined, the intent is used up. Initiate the payment session again
 
 ## Testing
 
-Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com). In test mode every card payment goes through Moyasar's 3-D Secure emulator. For example, `4111 1111 1111 1111` (Visa) and `4201 3201 1111 1010` (mada) succeed, and `4123 1200 0109 0000` is declined with insufficient funds.
+Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com). In test mode every card payment goes through Moyasar's 3-D Secure emulator. For example, `4111 1111 1111 1111` (Visa) and `4201 3201 1111 1010` (mada) succeed, and `4123 1200 0109 0000` is declined with insufficient funds. Wallet payments such as Apple Pay use your real card in test mode and are decided by amount: Moyasar approves totals between SAR 200 and SAR 300 and declines the rest.
 
 ```bash
 npm test
