@@ -77,7 +77,7 @@ export class MoyasarClient {
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.maxRetries = config.maxNetworkRetries ?? DEFAULT_MAX_RETRIES
     this.fetchImpl = config.fetch ?? globalThis.fetch
-    this.userAgent = config.userAgent ?? "medusa-payment-moyasar"
+    this.userAgent = config.userAgent ?? "medusa-plugin-moyasar"
   }
 
   createPaymentIntent(

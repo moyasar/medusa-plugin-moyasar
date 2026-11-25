@@ -37,7 +37,7 @@ The provider generates the Moyasar payment ID (`given_id`) when it creates the s
 ## 1. Install
 
 ```bash
-npm install medusa-payment-moyasar
+npm install medusa-plugin-moyasar
 ```
 
 ## 2. Configure Medusa
@@ -51,7 +51,7 @@ module.exports = defineConfig({
       options: {
         providers: [
           {
-            resolve: "medusa-payment-moyasar",
+            resolve: "medusa-plugin-moyasar",
             id: "moyasar",
             options: {
               secretKey: process.env.MOYASAR_SECRET_KEY,
