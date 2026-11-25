@@ -4,6 +4,10 @@
   "description": "Moyasar payment provider for Medusa v2: cards, mada, Apple Pay, Samsung Pay and STC Pay through Moyasar Payment Intents.",
   "license": "MIT",
   "author": "Moyasar",
+  "homepage": "https://github.com/moyasar/medusa-plugin-moyasar#readme",
+  "bugs": {
+    "url": "https://github.com/moyasar/medusa-plugin-moyasar/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/moyasar/medusa-plugin-moyasar.git"
