@@ -61,6 +61,7 @@ const SUCCESSFUL_STATUSES = new Set<MoyasarPaymentStatus>([
   "captured",
   "refunded",
 ])
+const PAID_STATUSES = new Set<MoyasarPaymentStatus>(["paid", "authorized", "captured"])
 
 export class MoyasarProviderService extends AbstractPaymentProvider<MoyasarOptions> {
   static override identifier = "moyasar"
@@ -180,7 +181,7 @@ export class MoyasarProviderService extends AbstractPaymentProvider<MoyasarOptio
       )
     }
 
-    await this.cancelIntentQuietly(session.intent_id)
+    await this.cancelIntent(session.intent_id)
 
     const next = await this.createSession(amount, currency_code, {
       ...data,
@@ -246,7 +247,7 @@ export class MoyasarProviderService extends AbstractPaymentProvider<MoyasarOptio
     const payment = await this.findPayment(session.payment_id)
 
     if (!payment) {
-      await this.cancelIntentQuietly(session.intent_id)
+      await this.cancelIntent(session.intent_id)
       return { data: session }
     }
 
@@ -267,9 +268,23 @@ export class MoyasarProviderService extends AbstractPaymentProvider<MoyasarOptio
   }
 
   async deletePayment({ data }: DeletePaymentInput): Promise<DeletePaymentOutput> {
-    const session = this.sessionData(data)
-    await this.cancelIntentQuietly(session.intent_id)
-    return { data: session }
+    if (!hasMoyasarIntent(data)) {
+      return { data: data ?? {} }
+    }
+
+    if (await this.cancelIntent(data.intent_id)) {
+      return { data }
+    }
+
+    const payment = await this.findPaymentQuietly(data.payment_id)
+    if (payment && PAID_STATUSES.has(payment.status) && this.matchesSession(payment, data)) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        `Moyasar: payment ${payment.id} is already ${payment.status} for this session. Complete the cart instead of changing it or starting a new payment.`
+      )
+    }
+
+    return { data }
   }
 
   async refundPayment({ amount, data }: RefundPaymentInput): Promise<RefundPaymentOutput> {
@@ -471,20 +486,33 @@ export class MoyasarProviderService extends AbstractPaymentProvider<MoyasarOptio
     return payment
   }
 
-  protected async cancelIntentQuietly(intentId: string): Promise<void> {
+  protected async findPaymentQuietly(id: string): Promise<MoyasarPayment | undefined> {
+    try {
+      return await this.findPayment(id)
+    } catch (error) {
+      this.logger_?.warn(
+        `Moyasar: could not check payment ${id} before deleting its session: ${(error as Error).message}`
+      )
+      return undefined
+    }
+  }
+
+  protected async cancelIntent(intentId: string): Promise<boolean> {
     try {
       await this.client_.cancelPaymentIntent(intentId)
+      return true
     } catch (error) {
       if (!(error instanceof MoyasarApiError && error.status < 500)) {
         this.logger_?.warn(
           `Moyasar: could not cancel payment intent ${intentId}: ${(error as Error).message}`
         )
       }
+      return false
     }
   }
 
   protected sessionData(data: Record<string, unknown> | undefined): MoyasarSessionData {
-    if (!data || typeof data.payment_id !== "string" || typeof data.intent_id !== "string") {
+    if (!hasMoyasarIntent(data)) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         "Moyasar: the payment session has no Moyasar intent. Initiate the session again."
@@ -570,6 +598,12 @@ function isHttpUrl(value: string): boolean {
 function isExpiring(expiresAt: string, marginMs = INTENT_REFRESH_MARGIN_MS): boolean {
   const time = Date.parse(expiresAt)
   return Number.isNaN(time) || time - marginMs <= Date.now()
+}
+
+function hasMoyasarIntent(
+  data: Record<string, unknown> | undefined
+): data is MoyasarSessionData {
+  return !!data && typeof data.payment_id === "string" && typeof data.intent_id === "string"
 }
 
 function stringOrUndefined(value: unknown): string | undefined {
