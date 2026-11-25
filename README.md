@@ -2,7 +2,7 @@
 
 Accept mada, Visa, Mastercard, Apple Pay, Samsung Pay and STC Pay in a [Medusa v2](https://medusajs.com) store through [Moyasar](https://moyasar.com).
 
-- **Server-side amounts.** Every checkout runs on a Moyasar [Payment Intent](https://docs.moyasar.com) created with your secret key. The browser can only complete the payment your backend approved, for the amount your backend set.
+- **Server-side amounts.** Every checkout runs on a Moyasar [Payment Intent](https://docs.moyasar.com/guides/payment-intents/overview) created with your secret key. The browser can only complete the payment your backend approved, for the amount your backend set.
 - **No trust in the browser.** Before Medusa authorizes a session, the provider fetches the payment from Moyasar and checks its ID, amount and currency against the session.
 - **Auto or manual capture.** Charge at checkout, or authorize first and capture from the Medusa admin when you fulfil the order.
 - **Webhooks.** Orders are still created if the shopper closes the tab after paying. Events are checked against your webhook secret with a constant-time comparison.
@@ -84,7 +84,7 @@ Then enable **Moyasar** (`pp_moyasar_moyasar`) on your regions in the Medusa adm
 
 ## 3. Set up the webhook
 
-In the [Moyasar dashboard](https://dashboard.moyasar.com) under **Settings → Webhooks**, add:
+In the [Moyasar dashboard](https://dashboard.moyasar.com) under **Settings → Webhooks** ([guide](https://docs.moyasar.com/guides/dashboard/setting-up-webhooks)), add:
 
 - **URL:** `https://<your-medusa-backend>/hooks/payment/moyasar_moyasar`
 - **HTTP method:** `POST`
@@ -121,7 +121,7 @@ npm install moyasar-payment-form
    return <MoyasarPayment session={session.data} locale="ar" />
    ```
 
-   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it. Apple Pay also needs the storefront on HTTPS and its domain registered for Apple Pay in your Moyasar dashboard, which serves Apple's verification file at `/.well-known/apple-developer-merchantid-domain-association`. Samsung Pay needs a Samsung Pay service ID whose service lists your storefront's domain; otherwise Samsung refuses the payment sheet with `OPM1N1045` ("Request source address not in valid service domain"):
+   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it. Apple Pay also needs the storefront on HTTPS and its domain [registered for Apple Pay](https://docs.moyasar.com/guides/apple-pay/web-registration) in your Moyasar dashboard, which serves Apple's verification file at `/.well-known/apple-developer-merchantid-domain-association`. [Samsung Pay](https://docs.moyasar.com/guides/samsung-pay/samsung-pay-web) needs a Samsung Pay service ID whose service lists your storefront's domain; otherwise Samsung refuses the payment sheet with `OPM1N1045` ("Request source address not in valid service domain"):
 
    ```tsx
    <MoyasarPayment
@@ -157,7 +157,7 @@ If a card is declined, the intent is used up. Initiate the payment session again
 
 ## Testing
 
-Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com). In test mode every card payment goes through Moyasar's 3-D Secure emulator. For example, `4111 1111 1111 1111` (Visa) and `4201 3201 1111 1010` (mada) succeed, and `4123 1200 0109 0000` is declined with insufficient funds. Wallet payments such as Apple Pay use your real card in test mode and are decided by amount: Moyasar approves totals between SAR 200 and SAR 300 and declines the rest.
+Use your `sk_test_` and `pk_test_` keys and Moyasar's [test cards](https://docs.moyasar.com/guides/card-payments/test-cards). In test mode every card payment goes through Moyasar's 3-D Secure emulator. For example, `4111 1111 1111 1111` (Visa) and `4201 3201 1111 1010` (mada) succeed, and `4123 1200 0109 0000` is declined with insufficient funds. Wallet payments such as Apple Pay use your real card in test mode and are [decided by amount](https://docs.moyasar.com/guides/apple-pay/testing): Moyasar approves totals between SAR 200 and SAR 300 and declines the rest.
 
 ```bash
 npm test
