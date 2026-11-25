@@ -121,7 +121,7 @@ npm install moyasar-payment-form
    return <MoyasarPayment session={session.data} locale="ar" />
    ```
 
-   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it. Apple Pay also needs the storefront on HTTPS and its domain registered for Apple Pay in your Moyasar dashboard, which serves Apple's verification file at `/.well-known/apple-developer-merchantid-domain-association`:
+   Apple Pay and Samsung Pay need their own configuration in the form. The component hides them until you pass it. Apple Pay also needs the storefront on HTTPS and its domain registered for Apple Pay in your Moyasar dashboard, which serves Apple's verification file at `/.well-known/apple-developer-merchantid-domain-association`. Samsung Pay needs a Samsung Pay service ID whose service lists your storefront's domain; otherwise Samsung refuses the payment sheet with `OPM1N1045` ("Request source address not in valid service domain"):
 
    ```tsx
    <MoyasarPayment
