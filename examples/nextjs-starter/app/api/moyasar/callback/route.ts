@@ -4,14 +4,18 @@ import { NextRequest, NextResponse } from "next/server"
 
 const PROVIDER_ID = "pp_moyasar_moyasar"
 
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: path } })
+}
+
 export async function GET(request: NextRequest) {
-  const { origin, searchParams } = request.nextUrl
+  const { searchParams } = request.nextUrl
   const cartId = searchParams.get("cart_id")
   const countryCode = searchParams.get("country_code") ?? "sa"
-  const checkout = new URL(`/${countryCode}/checkout?step=payment`, origin)
+  const checkout = new URLSearchParams({ step: "payment" })
 
   if (!cartId) {
-    return NextResponse.redirect(checkout)
+    return redirectTo(`/${countryCode}/checkout?${checkout}`)
   }
 
   let error = searchParams.get("message") || "Payment failed"
@@ -27,18 +31,17 @@ export async function GET(request: NextRequest) {
   }
 
   const cart = await retrieveCart(cartId)
+  const callbackUrl = cart?.payment_collection?.payment_sessions?.find(
+    (session) => session.provider_id === PROVIDER_ID
+  )?.data?.callback_url
 
-  if (cart && !cart.completed_at) {
-    const callbackUrl = new URL("/api/moyasar/callback", origin)
-    callbackUrl.searchParams.set("cart_id", cartId)
-    callbackUrl.searchParams.set("country_code", countryCode)
-
+  if (cart && !cart.completed_at && typeof callbackUrl === "string") {
     await initiatePaymentSession(cart, {
       provider_id: PROVIDER_ID,
-      data: { callback_url: callbackUrl.toString() },
+      data: { callback_url: callbackUrl },
     }).catch(() => undefined)
   }
 
-  checkout.searchParams.set("error", error)
-  return NextResponse.redirect(checkout)
+  checkout.set("error", error)
+  return redirectTo(`/${countryCode}/checkout?${checkout}`)
 }
